@@ -300,3 +300,165 @@ plot_confusion_matrix(y_true, y_pred, classes=class_names, normalize=True,
 
 plt.show()
 
+
+
+
+##############################################################################
+import numpy as np
+#%matplotlib inline               ### For Jupiter notebook
+import matplotlib.pyplot as plt
+
+##########################################################
+# (a)
+##########################################################
+
+# ridge regression solver function
+def ridge_regression_solver(lmd, X, y):
+    X_trans = np.transpose(X)
+    lmd_iden = lmd * np.identity(X.shape[1])
+    inv_mat = np.linalg.inv(lmd_iden + np.dot(X_trans, X))
+    X_trans_y = np.dot(X_trans, y)
+    wrr = np.dot(inv_mat, X_trans_y)
+    A, B, C = np.linalg.svd(X)
+    df = np.sum(np.square(B) / (np.square(B) + lmd))
+    return wrr, df
+
+# Load train dataset
+X_train = np.loadtxt('./hw1-data/X_train.csv', delimiter=',')
+y_train = np.loadtxt('./hw1-data/y_train.csv', delimiter=',')
+
+# Initialize lists for wrr and df
+list_wrr = []
+list_df = []
+
+# solve ridge regression for lambda: 0 to 5000
+for lmd in range(0, 5001):
+    wrr, df = ridge_regression_solver(lmd, X_train, y_train)
+    list_wrr.append(wrr)
+    list_df.append(df)
+
+# Convert wrr and df to array for plot
+array_wrr = np.asarray(list_wrr)
+array_df = np.asarray(list_df)
+
+# plot
+plt.figure()
+labels = ["Dim. 1: cylinders", "Dim. 2: displacement", "Dim. 3: horsepower",
+          "Dim. 4: weight", "Dim. 5: acceleration", "Dim. 6: year made", "Dim. 7"]
+for i in range(0, 7):
+    plt.scatter(array_df, array_wrr[:,i], s=10, label=labels[i])
+
+plt.xlabel("df($\lambda$)")
+plt.legend()
+plt.show()
+
+
+##########################################################
+# (b)
+##########################################################
+
+'''
+From the plot obtained in (a), we observe dimension 4: weight and dimension 6: year made stand out the most.
+dimension 4: weight shows that the miles per gallon for a car decreases as car weight increases.
+dimension 6: year made shows that the miles per gallon for a car increases as year made increases.
+Such features which stand out the most indicate that they are the most important features in determining miles per gallon for a car.
+'''
+
+
+##########################################################
+# (c)
+##########################################################
+
+# Load test datasets
+X_test = np.loadtxt('./hw1-data/X_test.csv', delimiter=',')
+y_test = np.loadtxt('./hw1-data/y_test.csv', delimiter=',')
+
+# RMSE calculator
+def calc_rmse(X, y, w):
+    y_pred = np.dot(X, w)
+    rmse = np.sqrt(np.sum(np.square(y - y_pred))/len(y))
+    return rmse
+
+# Initialize a list for RMSE
+list_rmse = []
+
+# For λ = 0, ... , 50, predict all 42 test cases; calculate RMSE
+for lmd in range(0, 51):
+    rmse = calc_rmse(X_test, y_test, array_wrr[lmd])
+    list_rmse.append(rmse)
+
+plt.figure()
+plt.scatter(range(len(list_rmse)), list_rmse)
+plt.xlabel("$\lambda$")
+plt.ylabel("RMSE")
+plt.show()
+
+# What does this figure tell you when choosing λ for this problem
+# (and when choosing between ridge regression and least squares)
+'''
+From the plot, we observe that the least RMSE is obtained when λ = 0. Also, as λ increase, the RMSE increases.
+Since λ = 0 is the case with least squares, we should choose least squares over ridge regression in which λ > 0 is the case.
+'''
+
+
+##########################################################
+# (d)
+##########################################################
+
+# Function to modify to learn a pth-order polynomial regression model
+def modify_poly_order(mat, p, mat2):
+    if p == 1:
+        return mat
+    else:
+        l = [mat]
+        for i in range(2, p+1):
+            tmp = np.power(mat[:, 0:6], i)
+            tmp2 = np.power(mat2[:, 0:6], i)
+            tmp = (tmp - np.mean(tmp2, axis=0)) / np.std(tmp2, axis=0)
+            l.append(tmp)
+        return np.hstack(l)
+
+# Plot the test RMSE as a function of λ = 0,...,100 for p = 1,2,3
+plt.figure()
+
+for i in range(1,4):
+
+    X_train_mod = modify_poly_order(X_train, i, X_train)
+    X_test_mod = modify_poly_order(X_test, i, X_train)
+
+    # Initialize lists for wrr and df
+    list_wrr = []
+    list_df = []
+
+    # solve ridge regression for lambda: 0 to 101
+    for lmd in range(0, 101):
+        wrr, df = ridge_regression_solver(lmd, X_train_mod, y_train)
+        list_wrr.append(wrr)
+        list_df.append(df)
+
+    # Convert wrr and df to array for plot
+    array_wrr = np.asarray(list_wrr)
+    array_df = np.asarray(list_df)
+
+    # Initialize a list for RMSE
+    list_rmse = []
+    color = ['blue', 'red', 'green']
+
+    for lmd in range(0, 101):
+        rmse = calc_rmse(X_test_mod, y_test, array_wrr[lmd])
+        list_rmse.append(rmse)
+
+    plt.scatter(range(len(list_rmse)), list_rmse, s=10, color=color[i-1], label="p = " + str(i))
+    print("for p=" + str(i) + ", min RMSE = " + str(min(list_rmse)) + " for lambda = " + str(list_rmse.index(min(list_rmse))))
+
+plt.xlabel("$\lambda$")
+plt.ylabel("RMSE")
+plt.legend()
+plt.show()
+
+# Based on this plot, which value of p should you choose and why?
+# How does your assessment of the ideal value of λ change for this problem?
+'''
+From the plot, we can observe the lowest RMSE is obtained when p = 3 and λ is 49.
+The ideal value of λ for this problem is 49.
+'''
